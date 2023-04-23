@@ -1,12 +1,14 @@
 import pygame
 import object_manager
 from physics import *
+from player import *
 
 DEBUG = False
 
 class Object:
 
     def __init__(self, path, size: Vector=None):
+        self.font = pygame.font.SysFont('Comic Sans MS', 30)
         if not (size == None):
             self.sprite = pygame.transform.scale(pygame.image.load(path).convert_alpha(), size.to_tuple())
             self.size = size
@@ -17,7 +19,11 @@ class Object:
         
     def draw(self, window):
         rs, rect = rot_center(self.sprite, self.angle, self.center())
+        nzed = normalize(Vector(rect.x, rect.y))
+        rect.x = nzed.x
+        rect.y = nzed.y
         if DEBUG:
+            window.blit(self.font.render(str(rect.x) + " " + str(rect.y), False, (255, 0, 0)), (0, 0))
             pygame.draw.rect(window, (0, 255, 0), rect, 1)
         window.blit(rs, rect)
     
@@ -51,10 +57,48 @@ class Bullet(Object, PhysicalBody):
         self.vel = Vector(-self.speed, 0).rotate(self.angle)
 
     def update(self):
-        if not pygame.display.get_surface().get_rect().collidepoint(self.pos.to_tuple()):
+        if self.lifetime < 0:
             object_manager.remove_object(self)
             return
+        self.lifetime -= 1
         self.pos += self.vel
+
+class Ability:
+    
+    def __init__(self, key, cooldown: int, use_time: int):
+        self.key = key
+        self.cooldown = Counter(cooldown, False)
+        self.use_time = Counter(use_time)
+        self.using = False
+        self.origin = Vector(0, 0), Vector(0, 0)
+        self.angle = 0
+    
+    def use(self):
+        if not self.cooldown.done():
+            return
+        self.using = True
+        
+    def update(self):
+        if self.use_time.done():
+            self.using = False
+        elif self.using == True:
+            self.use_time.step()
+        self.cooldown.step()
+    
+    def draw(self, window):
+        if self.using:
+            center_offset = Vector(self.origin[1].x / 2, self.origin[1].y / 2) + self.origin[0]
+            start_pos = normalize((Vector(0, -self.origin[1].y / 2).rotate(self.angle - 90) + center_offset)).to_tuple()
+            end_pos = normalize((Vector(0, -(self.origin[1].y / 2 + 200)).rotate(self.angle - 90) + center_offset)).to_tuple()
+            pygame.draw.line(window, (255, 0, 0),
+                             start_pos,
+                             end_pos,
+                             int(5 * math.sin(self.use_time.counter / 100) + 25))
+            pygame.draw.line(window, (255, 125, 0),
+                             start_pos,
+                             end_pos,
+                             10)
+            pygame.draw.circle(window, (255, 0, 0), end_pos, int(5 * math.sin(self.use_time.counter / 100) + 25) / 2)
 
 class Weapon:
 
@@ -73,7 +117,7 @@ class Ship(PhysicalBody, Object):
         Object.__init__(self, path, size)
         self.weapons = weapons
         self.coords = []
-
+        
         self.gcounter = 0
         
     def shoot(self, target):
@@ -90,56 +134,16 @@ class Ship(PhysicalBody, Object):
                 self.coords.pop(0)
 
     def draw(self, window):
-        pygame.draw.circle(window, (255, 75, 0), 
-                           (self.pos + Vector(0, self.size.y / 2).rotate(self.angle - 90) + Vector(self.size.x / 2, self.size.y / 2)).to_tuple(),
-                           abs(5 * math.sin(self.gcounter / 100)) + 10)
-        pygame.draw.circle(window, (255, 125, 0), 
-                           (self.pos + Vector(0, self.size.y / 2).rotate(self.angle - 90) + Vector(self.size.x / 2, self.size.y / 2)).to_tuple(),
-                           5)
+        cpos = normalize((self.pos + Vector(0, self.size.y / 2).rotate(self.angle - 90) + Vector(self.size.x / 2, self.size.y / 2))).to_tuple()
+        pygame.draw.circle(window, (255, 75, 0), cpos, abs(5 * math.sin(self.gcounter / 100)) + 10)
+        pygame.draw.circle(window, (255, 125, 0), cpos, 5)
         
         self.gcounter += 1
-
+        
         
         idx = 0
         for i in self.coords:
             idx += 1
-            pygame.draw.circle(window, (255, 0, 0), i.to_tuple(), 7.5 * idx / 100)
+            pygame.draw.circle(window, (255, 0, 0), normalize(i).to_tuple(), 7.5 * idx / 100)
             
         super().draw(window)
-
-class Player(Ship):
-
-    def __init__(self, keys):
-        super().__init__("images/playerShip.png")
-        self.keys = keys
-        self.shootcd = 100
-        self.cdcounter = 0
-        def offset(size):
-            return Vector(-size.x / 2, 0)
-        def offset2(size):
-            return Vector(size.x / 2, 0)
-        self.weapons = [Weapon(BulletType("images/laserBlue.png", 1, 1, Vector(5, 29)), offset),
-                        Weapon(BulletType("images/laserBlue.png", 1, 1, Vector(5, 29)), offset2)]
-    
-    def update(self):
-        super().update()
-
-        pressed = pygame.key.get_pressed()
-        if pygame.mouse.get_pressed()[0] and self.cdcounter >= self.shootcd:
-            self.cdcounter = 0
-            self.shoot(pygame.mouse.get_pos())
-        else:
-            self.cdcounter += 1
-        if pressed[self.keys['up']] and self.vel.y > -0.5:
-            self.impulse(Vector(0, -DEFAULT_SPEED))
-        if pressed[self.keys['down']] and self.vel.y < 0.5:
-            self.impulse(Vector(0, DEFAULT_SPEED))
-        if pressed[self.keys['right']] and self.vel.x < 0.5:
-            self.impulse(Vector(DEFAULT_SPEED, 0))
-        if pressed[self.keys['left']] and self.vel.x > -0.5:
-            self.impulse(Vector(-DEFAULT_SPEED, 0))
-        if pressed[self.keys['debug']]:
-            pass
-
-        pos = pygame.mouse.get_pos()
-        self.angle = angle(pos[0] - self.center().x, -(pos[1] - self.center().y)) - 90

@@ -1,19 +1,17 @@
 import pygame
-from objects import *
 
 pygame.init()
+pygame.font.init()
 
-window = pygame.display.set_mode((1200, 800))
+from objects import *
+from player import *
+from ships import *
 
-keys1 = {
-    "up": pygame.K_w,
-    "down": pygame.K_s,
-    "right": pygame.K_d,
-    "left": pygame.K_a,
-    "debug": pygame.K_f
-}
+WIDTH = 1200
+HEIGHT = 800
+window = pygame.display.set_mode((WIDTH, HEIGHT))
 
-player1 = Player(keys1)
+player1 = PlayerShip(keys1)
 
 running = True
 while running:
