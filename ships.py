@@ -4,27 +4,27 @@ from objects import *
 class PlayerShip(Ship):
 
     def __init__(self, keys):
-        super().__init__("images/playerShip.png")
-        self.keys = keys
-        self.shootcd = 100
-        self.cdcounter = 0
         def offset(size):
             return Vector(-size.x / 2, 0)
+
         def offset2(size):
             return Vector(size.x / 2, 0)
         
-        self.weapons = [Weapon(BulletType("images/laserBlue.png", 1000, 2, Vector(5, 29)), offset),
-                        Weapon(BulletType("images/laserBlue.png", 1000, 2, Vector(5, 29)), offset2)]
-        self.abilities = [Ability(pygame.K_g, 10000, 1000)]
-        
-        for i in self.abilities:
-            object_manager.add_object(i)
+        weapons = [Weapon(BulletType("images/laserBlue.png", 1000, 2, Vector(5, 29)), offset, 100),
+                        Weapon(BulletType("images/laserBlue.png", 1000, 2, Vector(5, 29)), offset2, 100)]
+        abilities = [LaserAbility(pygame.K_g, 10000, 1000)]
+
+        super().__init__("images/playerShip.png", weapons, abilities)
+
+        self.keys = keys
 
     def update(self):
         super().update()
+        global player_pos
         
         set_x(self.center().x)
         set_y(self.center().y)
+        set(self.center())
 
         pressed = pygame.key.get_pressed()
         
@@ -34,11 +34,8 @@ class PlayerShip(Ship):
             if pressed[ability.key]:
                 ability.use()
          
-        if pygame.mouse.get_pressed()[0] and self.cdcounter >= self.shootcd:
-            self.cdcounter = 0
+        if pygame.mouse.get_pressed()[0]:
             self.shoot(dn(Vector.from_tuple(pygame.mouse.get_pos())))
-        else:
-            self.cdcounter += 1
         if pressed[self.keys['up']] and self.vel.y > -0.5:
             self.impulse(Vector(0, -DEFAULT_SPEED))
         if pressed[self.keys['down']] and self.vel.y < 0.5:
@@ -58,4 +55,22 @@ class PlayerShip(Ship):
 class AI(Ship):
 
     def __init__(self):
-        super().__init__("./images/enemyBlack1.png")
+
+        def offset(size):
+            return Vector(0, -size.y / 2)
+
+        weapons = [Weapon(BulletType("images/laserRed.png", 1000, 2, Vector(5, 29)), offset, 100)]
+        abilities = []
+
+        super().__init__("./images/enemyBlack1.png", weapons, abilities)
+
+    def update(self):
+        # super().update()
+
+        pos = get()
+        norm = self.center()
+        self.angle = angle(pos.x - norm.x, -(pos.y - norm.y)) - 90
+
+        velocity = 1
+        self.vel = Vector(-velocity, 0).rotate(self.angle)
+        self.pos += self.vel

@@ -1,9 +1,15 @@
+import enum
+
 import pygame
 import object_manager
-from physics import *
 from player import *
 
 DEBUG = False
+
+class ObjectType(enum.Enum):
+    BULLET = "bullet"
+    SHIP = "ship"
+
 
 class Object:
 
@@ -16,6 +22,8 @@ class Object:
             self.sprite = pygame.image.load(path).convert_alpha()
             self.size = Vector.from_tuple(self.sprite.get_size())
         self.angle = 0
+        self.hitbox = (0, 0, 0, 0)
+        self.obj_type = ""
         
     def draw(self, window):
         rs, rect = rot_center(self.sprite, self.angle, self.center())
@@ -25,6 +33,7 @@ class Object:
         if DEBUG:
             window.blit(self.font.render(str(rect.x) + " " + str(rect.y), False, (255, 0, 0)), (0, 0))
             pygame.draw.rect(window, (0, 255, 0), rect, 1)
+        self.hitbox = rect
         window.blit(rs, rect)
     
     def update(self):
@@ -32,6 +41,9 @@ class Object:
 
     def center(self):
         return self.pos + Vector(self.size.x / 2, self.size.y / 2)
+
+    def handle_collide(self, other):
+        pass
 
 class BulletType:
 
@@ -50,28 +62,30 @@ class Bullet(Object, PhysicalBody):
     def __init__(self, path, lifetime, speed, btype, x, y, angle, size=None):
         Object.__init__(self, path, size)
         PhysicalBody.__init__(self, x, y)
-        self.lifetime = lifetime
+        self.obj_type = ObjectType.BULLET
+        self.lifetime = Counter(lifetime)
         self.speed = speed
         self.btype = btype
         self.angle = angle
         self.vel = Vector(-self.speed, 0).rotate(self.angle)
 
     def update(self):
-        if self.lifetime < 0:
+        if self.lifetime.step():
             object_manager.remove_object(self)
             return
-        self.lifetime -= 1
         self.pos += self.vel
 
 class Ability:
     
     def __init__(self, key, cooldown: int, use_time: int):
+        self.size = (0, 0)
         self.key = key
         self.cooldown = Counter(cooldown, False)
         self.use_time = Counter(use_time)
         self.using = False
         self.origin = Vector(0, 0), Vector(0, 0)
         self.angle = 0
+        self.hitbox = (0, 0, 0, 0)
     
     def use(self):
         if not self.cooldown.done():
@@ -84,6 +98,11 @@ class Ability:
         elif self.using == True:
             self.use_time.step()
         self.cooldown.step()
+
+    def draw(self, window):
+        pass
+
+class LaserAbility(Ability):
     
     def draw(self, window):
         if self.using:
@@ -100,25 +119,38 @@ class Ability:
                              10)
             pygame.draw.circle(window, (255, 0, 0), end_pos, int(5 * math.sin(self.use_time.counter / 100) + 25) / 2)
 
+
 class Weapon:
 
-    def __init__(self, bullet_type, offset_calc):
+    def __init__(self, bullet_type, offset_calc, cooldown):
         self.bullet_type = bullet_type
         self.offset_calc = offset_calc
+        self.cooldown = Counter(cooldown, False)
+
+    def update(self):
+        self.cooldown.step()
 
     def shoot(self, target: Vector, origin: Vector, angle):
+        if not self.cooldown.done():
+            return
         self.bullet_type.create_instance(origin, angle)
 
 
 class Ship(PhysicalBody, Object):
     
-    def __init__(self, path, weapons: list[Weapon]=[], size=None):
+    def __init__(self, path, weapons=[], abilities=[], size=None):
         PhysicalBody.__init__(self)
         Object.__init__(self, path, size)
         self.weapons = weapons
         self.coords = []
-        
-        self.gcounter = 0
+        self.abilities = abilities
+        self.__gcounter = 0
+
+        for ability in abilities:
+            object_manager.add_object(ability)
+
+        for weapon in weapons:
+            object_manager.add_object(weapon)
         
     def shoot(self, target):
         for weapon in self.weapons:
@@ -135,11 +167,10 @@ class Ship(PhysicalBody, Object):
 
     def draw(self, window):
         cpos = normalize((self.pos + Vector(0, self.size.y / 2).rotate(self.angle - 90) + Vector(self.size.x / 2, self.size.y / 2))).to_tuple()
-        pygame.draw.circle(window, (255, 75, 0), cpos, abs(5 * math.sin(self.gcounter / 100)) + 10)
+        pygame.draw.circle(window, (255, 75, 0), cpos, abs(5 * math.sin(self.__gcounter / 100)) + 10)
         pygame.draw.circle(window, (255, 125, 0), cpos, 5)
         
-        self.gcounter += 1
-        
+        self.__gcounter += 1
         
         idx = 0
         for i in self.coords:
@@ -147,3 +178,8 @@ class Ship(PhysicalBody, Object):
             pygame.draw.circle(window, (255, 0, 0), normalize(i).to_tuple(), 7.5 * idx / 100)
             
         super().draw(window)
+
+    def handle_collide(self, other):
+        if hasattr(other, "obj_type"):
+            if other.obj_type == ObjectType.BULLET:
+                pass

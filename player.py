@@ -1,8 +1,6 @@
 import pygame
 
 from physics import *
-from objects import *
-import object_manager
 
 keys1 = {
     "up": pygame.K_w,
@@ -17,8 +15,8 @@ class Camera:
     def __init__(self):
         self.pos = Vector(0, 0)
 
-
 __cam = Camera()
+player_pos = Vector(0, 0)
 
 def normalize(pos: Vector) -> Vector:
     display = pygame.display.get_surface()
@@ -35,3 +33,13 @@ def set_x(dx):
 
 def set_y(dy):
     __cam.pos.y = dy
+
+def add(dp: Vector):
+    __cam.pos += dp
+
+def set(vc: Vector):
+    global player_pos
+    player_pos = vc
+
+def get() -> Vector:
+    return player_pos
