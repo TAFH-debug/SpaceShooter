@@ -1,5 +1,6 @@
 import pygame
 import random
+from menu.menu import *
 
 pygame.init()
 pygame.font.init()
@@ -15,16 +16,31 @@ stars = [(random.randint(0, WIDTH), random.randint(0, HEIGHT)) for i in range(20
 player1 = PlayerShip(keys1)
 enemy = AI()
 
+def play():
+    global ismenu
+    ismenu = False
+
+# region menu
+add_widget(Label(WIDTH / 2 - 250, 200, Text("S p a c e  S h o o t e r", pygame.font.Font("./images/font.woff", 40), (120, 10, 20))))
+add_widget(Button(WIDTH / 2 - 100, HEIGHT / 2 - 50, 200, 100, Clicked((125, 126, 0), Border(2, (50, 40, 45), 10)),
+                  (144, 155, 0), Border(2, (50, 40, 45), 10), play, Text("Play", pygame.font.Font("./images/font.woff", 40), (0, 0, 0))))
+# endregion
+
 running = True
+ismenu = True
 while running:
-    if True:
-        draw_menu()
-        continue
-    for event in pygame.event.get():
+    events = pygame.event.get()
+    for event in events:
         if event.type == pygame.QUIT:
             running = False
-        if event.type == pygame.KEYDOWN:
-            pass
+
+    if ismenu:
+        window.fill((88, 85, 79))
+
+        draw_menu(window)
+        update_menu(events)
+        pygame.display.flip()
+        continue
     
     pressed = pygame.key.get_pressed()
     # region logic

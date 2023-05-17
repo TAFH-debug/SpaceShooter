@@ -45,6 +45,15 @@ class Object:
     def handle_collide(self, other):
         pass
 
+class Destroyable:
+    
+    def __init__(self):
+        pass
+
+    def draw(self, window):
+        pass
+
+
 class BulletType:
 
     def __init__(self, path, lifetime, speed, size=None):
@@ -136,7 +145,7 @@ class Weapon:
         self.bullet_type.create_instance(origin, angle)
 
 
-class Ship(PhysicalBody, Object):
+class Ship(PhysicalBody, Object, Destroyable):
     
     def __init__(self, path, weapons=[], abilities=[], size=None):
         PhysicalBody.__init__(self)
