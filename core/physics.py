@@ -1,5 +1,5 @@
 import math
-from util import *
+from .util import *
 
 eps = 1e6
 class Vector:

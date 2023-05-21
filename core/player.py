@@ -1,6 +1,6 @@
 import pygame
 
-from physics import *
+from .physics import *
 
 keys1 = {
     "up": pygame.K_w,

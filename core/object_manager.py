@@ -1,6 +1,7 @@
 import pygame
 
 __objects = []
+__to_remove = []
 
 def get_objects():
     return __objects
@@ -9,7 +10,7 @@ def add_object(obj):
     __objects.append(obj)
 
 def remove_object(obj):
-    __objects.remove(obj)
+    __to_remove.append(obj)
 
 def draw(window):
     for i in __objects:
@@ -32,3 +33,8 @@ def update():
             if rc.colliderect(rc2):
                 __objects[i].handle_collide(__objects[j])
                 __objects[j].handle_collide(__objects[i])
+
+    for i in __to_remove:
+        __objects.remove(i)
+
+    __to_remove.clear()

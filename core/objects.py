@@ -1,10 +1,15 @@
 import enum
 
 import pygame
-import object_manager
-from player import *
+from . import object_manager
+from .player import *
+from .player import Vector
 
 DEBUG = False
+
+class Team(enum.Enum):
+    PLAYER = "player"
+    ENEMY = "enemy"
 
 class ObjectType(enum.Enum):
     BULLET = "bullet"
@@ -23,7 +28,6 @@ class Object:
             self.size = Vector.from_tuple(self.sprite.get_size())
         self.angle = 0
         self.hitbox = (0, 0, 0, 0)
-        self.obj_type = ""
         
     def draw(self, window):
         rs, rect = rot_center(self.sprite, self.angle, self.center())
@@ -31,7 +35,6 @@ class Object:
         rect.x = nzed.x
         rect.y = nzed.y
         if DEBUG:
-            window.blit(self.font.render(str(rect.x) + " " + str(rect.y), False, (255, 0, 0)), (0, 0))
             pygame.draw.rect(window, (0, 255, 0), rect, 1)
         self.hitbox = rect
         window.blit(rs, rect)
@@ -45,13 +48,28 @@ class Object:
     def handle_collide(self, other):
         pass
 
+class GameObject(Object, PhysicalBody):
+    
+    def __init__(self, path, ot, team=Team.PLAYER, size: Vector = None):
+        Object.__init__(self, path, size)
+        PhysicalBody.__init__(self)
+        self.team = team
+        self.object_type = ot
+
 class Destroyable:
     
-    def __init__(self):
-        pass
+    def __init__(self, max_health):
+        self.health = max_health
+        self.max_health = max_health
 
     def draw(self, window):
-        pass
+        norm = normalize(self.pos)
+        pygame.draw.rect(window, (255, 0, 0), (norm.x, norm.y - 10, self.size.x, 10))
+        pygame.draw.rect(window, (0, 255, 0), (norm.x, norm.y - 10, self.size.x * self.health / self.max_health, 10))
+
+    def update(self):
+        if self.health <= 0:
+            object_manager.remove_object(self)
 
 
 class BulletType:
@@ -62,27 +80,9 @@ class BulletType:
         self.lifetime = lifetime
         self.size = size
 
-    def create_instance(self, origin, angle):
-        bullet = Bullet(self.path, self.lifetime, self.speed, self, origin.x, origin.y, angle, self.size)
+    def create_instance(self, origin, angle, parent):
+        bullet = Bullet(parent, self.path, self.lifetime, self.speed, self, origin.x, origin.y, angle, self.size)
         object_manager.add_object(bullet)
-
-class Bullet(Object, PhysicalBody):
-
-    def __init__(self, path, lifetime, speed, btype, x, y, angle, size=None):
-        Object.__init__(self, path, size)
-        PhysicalBody.__init__(self, x, y)
-        self.obj_type = ObjectType.BULLET
-        self.lifetime = Counter(lifetime)
-        self.speed = speed
-        self.btype = btype
-        self.angle = angle
-        self.vel = Vector(-self.speed, 0).rotate(self.angle)
-
-    def update(self):
-        if self.lifetime.step():
-            object_manager.remove_object(self)
-            return
-        self.pos += self.vel
 
 class Ability:
     
@@ -139,17 +139,38 @@ class Weapon:
     def update(self):
         self.cooldown.step()
 
-    def shoot(self, target: Vector, origin: Vector, angle):
+    def shoot(self, target: Vector, origin: Vector, angle, parent):
         if not self.cooldown.done():
             return
-        self.bullet_type.create_instance(origin, angle)
+        self.bullet_type.create_instance(origin, angle, parent)
 
+class Bullet(GameObject):
 
-class Ship(PhysicalBody, Object, Destroyable):
+    def __init__(self, parent, path, lifetime, speed, btype, x, y, angle, size=None):
+        GameObject.__init__(self, path, ObjectType.BULLET, parent.team, size)
+        self.parent = parent
+        self.pos = Vector(x, y)
+        self.lifetime = Counter(lifetime)
+        self.speed = speed
+        self.btype = btype
+        self.angle = angle
+        self.vel = Vector(-self.speed, 0).rotate(self.angle)
+
+    def update(self):
+        if self.lifetime.step():
+            object_manager.remove_object(self)
+            return
+        self.pos += self.vel
+
+    def handle_collide(self, other):
+        if other.team != self.team:
+            object_manager.remove_object(self)
+
+class Ship(GameObject, Destroyable):
     
     def __init__(self, path, weapons=[], abilities=[], size=None):
-        PhysicalBody.__init__(self)
-        Object.__init__(self, path, size)
+        GameObject.__init__(self, path, ObjectType.SHIP, Team.ENEMY, size)
+        Destroyable.__init__(self, 100)
         self.weapons = weapons
         self.coords = []
         self.abilities = abilities
@@ -164,9 +185,10 @@ class Ship(PhysicalBody, Object, Destroyable):
     def shoot(self, target):
         for weapon in self.weapons:
             offset = weapon.offset_calc(self.size).rotate(self.angle + 90)
-            weapon.shoot(target, offset + self.center(), self.angle)
+            weapon.shoot(target, offset + self.center(), self.angle, self)
 
     def update(self):
+        Destroyable.update(self)
         PhysicalBody.update(self)
 
         if len(self.coords) == 0 or (self.pos.x != self.coords[-1].x or self.pos.y != self.coords[-1].y):
@@ -175,6 +197,8 @@ class Ship(PhysicalBody, Object, Destroyable):
                 self.coords.pop(0)
 
     def draw(self, window):
+        Destroyable.draw(self, window)
+
         cpos = normalize((self.pos + Vector(0, self.size.y / 2).rotate(self.angle - 90) + Vector(self.size.x / 2, self.size.y / 2))).to_tuple()
         pygame.draw.circle(window, (255, 75, 0), cpos, abs(5 * math.sin(self.__gcounter / 100)) + 10)
         pygame.draw.circle(window, (255, 125, 0), cpos, 5)
@@ -189,6 +213,5 @@ class Ship(PhysicalBody, Object, Destroyable):
         super().draw(window)
 
     def handle_collide(self, other):
-        if hasattr(other, "obj_type"):
-            if other.obj_type == ObjectType.BULLET:
-                pass
+        if other.object_type == ObjectType.BULLET and self.team != other.team:
+            self.health -= 10

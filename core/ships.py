@@ -1,4 +1,4 @@
-from objects import *
+from .objects import *
 
 
 class PlayerShip(Ship):
@@ -10,12 +10,13 @@ class PlayerShip(Ship):
         def offset2(size):
             return Vector(size.x / 2, 0)
         
-        weapons = [Weapon(BulletType("images/laserBlue.png", 1000, 2, Vector(5, 29)), offset, 100),
-                        Weapon(BulletType("images/laserBlue.png", 1000, 2, Vector(5, 29)), offset2, 100)]
+        weapons = [Weapon(BulletType("images/laserBlue.png", 200, 2, Vector(5, 29)), offset, 200),
+                        Weapon(BulletType("images/laserBlue.png", 200, 2, Vector(5, 29)), offset2, 200)]
         abilities = [LaserAbility(pygame.K_g, 10000, 1000)]
 
         super().__init__("images/playerShip.png", weapons, abilities)
 
+        self.team = Team.PLAYER
         self.keys = keys
 
     def update(self):
@@ -65,7 +66,7 @@ class AI(Ship):
         super().__init__("./images/enemyBlack1.png", weapons, abilities)
 
     def update(self):
-        # super().update()
+        Destroyable.update(self)
 
         pos = get()
         norm = self.center()
