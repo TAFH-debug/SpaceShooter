@@ -18,10 +18,12 @@ stars = [(random.randint(0, WIDTH), random.randint(0, HEIGHT)) for i in range(20
 pygame.mouse.set_visible(False)
 cursor = Cursor("./images/cursor.png", Vector(20, 20))
 player1 = PlayerShip(keys1)
+enemy = AI()
 ui = UI(player1)
 
 object_manager.add_object(player1)
 object_manager.add_object(ui)
+object_manager.add_object(enemy)
 
 scene = Scenes.MENU
 
