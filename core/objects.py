@@ -15,6 +15,10 @@ class ObjectType(enum.Enum):
     BULLET = "bullet"
     SHIP = "ship"
 
+class HitboxType(enum.Enum):
+    LINE = "line"
+    BOX = "box"
+
 
 class Object:
 
@@ -28,6 +32,7 @@ class Object:
             self.size = Vector.from_tuple(self.sprite.get_size())
         self.angle = 0
         self.hitbox = (0, 0, 0, 0)
+        self.hitbox_type = HitboxType.BOX
         
     def draw(self, window):
         rs, rect = rot_center(self.sprite, self.angle, self.center())
@@ -74,20 +79,23 @@ class Destroyable:
 
 class BulletType:
 
-    def __init__(self, path, lifetime, speed, size=None):
+    def __init__(self, path, lifetime, speed, damage, size=None):
         self.path = path
+        self.damage = damage
         self.speed = speed
         self.lifetime = lifetime
         self.size = size
 
     def create_instance(self, origin, angle, parent):
-        bullet = Bullet(parent, self.path, self.lifetime, self.speed, self, origin.x, origin.y, angle, self.size)
+        bullet = Bullet(parent, self.path, self.lifetime, self.speed, self, origin.x, origin.y, angle, self.damage, self.size)
         object_manager.add_object(bullet)
 
 class Ability:
     
     def __init__(self, key, cooldown: int, use_time: int):
+        self.parent = None
         self.size = (0, 0)
+        self.object_type = ObjectType.BULLET
         self.key = key
         self.cooldown = Counter(cooldown, False)
         self.use_time = Counter(use_time)
@@ -111,23 +119,44 @@ class Ability:
     def draw(self, window):
         pass
 
+class SuperAbility(Ability):
+    
+    def __init__(self, key, cooldown: int, use_time: int):
+        super().__init__(key, cooldown, use_time)
+        self.tp = BulletType("./images/spaceMissiles19.png", 1000, 0.5, 50, Vector(40, 80))
+    
+    def use(self):
+        if not self.cooldown.done():
+            return
+        self.tp.create_instance(self.parent.center(), self.parent.angle, self.parent)
+        self.using = True
+        
+
 class LaserAbility(Ability):
     
+    def __init__(self, key, cooldown: int, use_time: int):
+        super().__init__(key, cooldown, use_time)
+        self.damage = 1
+        self.width = 30
+        self.height = 200
+    
+    def update(self):
+        super().update()     
+        
     def draw(self, window):
         if self.using:
             center_offset = Vector(self.origin[1].x / 2, self.origin[1].y / 2) + self.origin[0]
             start_pos = normalize((Vector(0, -self.origin[1].y / 2).rotate(self.angle - 90) + center_offset)).to_tuple()
-            end_pos = normalize((Vector(0, -(self.origin[1].y / 2 + 200)).rotate(self.angle - 90) + center_offset)).to_tuple()
+            end_pos = normalize((Vector(0, -(self.origin[1].y / 2 + self.height)).rotate(self.angle - 90) + center_offset)).to_tuple()
             pygame.draw.line(window, (255, 0, 0),
                              start_pos,
                              end_pos,
-                             int(5 * math.sin(self.use_time.counter / 100) + 25))
+                             int(5 * math.sin(self.use_time.counter / 100) + self.width - 5))
             pygame.draw.line(window, (255, 125, 0),
                              start_pos,
                              end_pos,
                              10)
             pygame.draw.circle(window, (255, 0, 0), end_pos, int(5 * math.sin(self.use_time.counter / 100) + 25) / 2)
-
 
 class Weapon:
 
@@ -146,8 +175,9 @@ class Weapon:
 
 class Bullet(GameObject):
 
-    def __init__(self, parent, path, lifetime, speed, btype, x, y, angle, size=None):
+    def __init__(self, parent, path, lifetime, speed, btype, x, y, angle, damage, size=None):
         GameObject.__init__(self, path, ObjectType.BULLET, parent.team, size)
+        self.damage = damage
         self.parent = parent
         self.pos = Vector(x, y)
         self.lifetime = Counter(lifetime)
@@ -177,6 +207,7 @@ class Ship(GameObject, Destroyable):
         self.__gcounter = 0
 
         for ability in abilities:
+            ability.parent = self
             object_manager.add_object(ability)
 
         for weapon in weapons:
@@ -214,4 +245,4 @@ class Ship(GameObject, Destroyable):
 
     def handle_collide(self, other):
         if other.object_type == ObjectType.BULLET and self.team != other.team:
-            self.health -= 10
+            self.health -= other.damage

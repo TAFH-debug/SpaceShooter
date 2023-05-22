@@ -10,9 +10,9 @@ class PlayerShip(Ship):
         def offset2(size):
             return Vector(size.x / 2, 0)
         
-        weapons = [Weapon(BulletType("images/laserBlue.png", 200, 2, Vector(5, 29)), offset, 200),
-                        Weapon(BulletType("images/laserBlue.png", 200, 2, Vector(5, 29)), offset2, 200)]
-        abilities = [LaserAbility(pygame.K_g, 10000, 1000)]
+        weapons = [Weapon(BulletType("images/laserBlue.png", 200, 2, 10, Vector(5, 29)), offset, 200),
+                        Weapon(BulletType("images/laserBlue.png", 200, 2, 10, Vector(5, 29)), offset2, 200)]
+        abilities = [SuperAbility(pygame.K_g, 10000, 1)]
 
         super().__init__("images/playerShip.png", weapons, abilities)
 
@@ -46,7 +46,7 @@ class PlayerShip(Ship):
         if pressed[self.keys['left']] and self.vel.x > -0.5:
             self.impulse(Vector(-DEFAULT_SPEED, 0))
         if pressed[self.keys['debug']]:
-            pass
+            self.abilities[0].cooldown.counter = 0
 
         pos = pygame.mouse.get_pos()
         norm = normalize(self.center())
@@ -60,7 +60,7 @@ class AI(Ship):
         def offset(size):
             return Vector(0, -size.y / 2)
 
-        weapons = [Weapon(BulletType("images/laserRed.png", 1000, 2, Vector(5, 29)), offset, 100)]
+        weapons = [Weapon(BulletType("images/laserRed.png", 1000, 2, 10, Vector(5, 29)), offset, 100)]
         abilities = []
 
         super().__init__("./images/enemyBlack1.png", weapons, abilities)
@@ -71,7 +71,11 @@ class AI(Ship):
         pos = get()
         norm = self.center()
         self.angle = angle(pos.x - norm.x, -(pos.y - norm.y)) - 90
-
+        
+        if (pos - norm).mod() < 300:
+            self.shoot(norm)
+            return
+            
         velocity = 1
         self.vel = Vector(-velocity, 0).rotate(self.angle)
         self.pos += self.vel

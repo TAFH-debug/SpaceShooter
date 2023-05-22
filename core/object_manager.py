@@ -27,7 +27,7 @@ def update():
         for j in range(i + 1, len(__objects)):
             if not hasattr(__objects[j], "hitbox"):
                 continue
-
+            
             rc = pygame.Rect(__objects[i].hitbox)
             rc2 = pygame.Rect(__objects[j].hitbox)
             if rc.colliderect(rc2):
