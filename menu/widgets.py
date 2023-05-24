@@ -64,7 +64,7 @@ class Label(Widget):
 class Button(Widget):
     
     def __init__(self, x, y, width, height, clicked, color=(255, 0, 0), border: Border=None, cmd=lambda: (), 
-                 text=Text("", None, (0, 0, 0))):
+                 text=Text("", None, (0, 0, 0)), data=None):
         Widget.__init__(self, x, y, width, height)
 
         self.text = text
@@ -73,6 +73,7 @@ class Button(Widget):
         self.cmd = cmd
         self.clicked = clicked
         self.is_clicked = False
+        self.data = data
         
     def draw(self, window):
         super().draw(window)
@@ -98,4 +99,4 @@ class Button(Widget):
                 self.is_clicked = True
             if i.type == pygame.MOUSEBUTTONUP and self.is_clicked:
                 self.is_clicked = False
-                self.cmd()
+                self.cmd(self.data)

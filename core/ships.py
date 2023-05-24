@@ -1,5 +1,5 @@
 from .objects import *
-
+import random
 
 class PlayerShip(Ship):
 
@@ -18,9 +18,17 @@ class PlayerShip(Ship):
 
         self.team = Team.PLAYER
         self.keys = keys
+        self.font = pygame.font.SysFont("Arial", 20)
+
+    def draw(self, window):
+        super().draw(window)
+        if DEBUG:
+            sp = self.font.render(str(int(self.pos.x)) + " " + str(int(self.pos.y)), False, (255, 255, 255))
+            window.blit(sp, (0, 0) + sp.get_size())
 
     def update(self):
         super().update()
+
         global player_pos
         
         set_x(self.center().x)
@@ -53,6 +61,7 @@ class PlayerShip(Ship):
         self.angle = angle(pos[0] - norm.x, -(pos[1] - norm.y)) - 90
 
 
+
 class AI(Ship):
 
     def __init__(self):
@@ -63,10 +72,13 @@ class AI(Ship):
         weapons = [Weapon(BulletType("images/laserRed.png", 1000, 2, 10, Vector(5, 29)), offset, 100)]
         abilities = []
 
+        self.rd = random.randint(1, 10)
         super().__init__("./images/enemyBlack1.png", weapons, abilities)
 
     def update(self):
         Destroyable.update(self)
+        pos = normalize(self.center())
+        self.hitbox = (pos.x - 37.5, pos.y - 37.5, 75, 75)
 
         pos = get()
         norm = self.center()
@@ -76,6 +88,6 @@ class AI(Ship):
             self.shoot(norm)
             return
             
-        velocity = 1
+        velocity = 1 * self.rd / 10
         self.vel = Vector(-velocity, 0).rotate(self.angle)
         self.pos += self.vel

@@ -3,6 +3,9 @@ import pygame
 __objects = []
 __to_remove = []
 
+def clear():
+    __objects.clear()
+    
 def get_objects():
     return __objects
 
@@ -35,6 +38,7 @@ def update():
                 __objects[j].handle_collide(__objects[i])
 
     for i in __to_remove:
-        __objects.remove(i)
+        if i in __objects:
+            __objects.remove(i)
 
     __to_remove.clear()

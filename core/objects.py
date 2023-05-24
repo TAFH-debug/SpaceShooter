@@ -14,6 +14,7 @@ class Team(enum.Enum):
 class ObjectType(enum.Enum):
     BULLET = "bullet"
     SHIP = "ship"
+    COLLIDEABLE = "collideable"
 
 class HitboxType(enum.Enum):
     LINE = "line"
@@ -40,7 +41,7 @@ class Object:
         rect.x = nzed.x
         rect.y = nzed.y
         if DEBUG:
-            pygame.draw.rect(window, (0, 255, 0), rect, 1)
+            pygame.draw.rect(window, (0, 255, 0), self.hitbox, 1)
         self.hitbox = rect
         window.blit(rs, rect)
     
@@ -53,6 +54,7 @@ class Object:
     def handle_collide(self, other):
         pass
 
+
 class GameObject(Object, PhysicalBody):
     
     def __init__(self, path, ot, team=Team.PLAYER, size: Vector = None):
@@ -60,6 +62,10 @@ class GameObject(Object, PhysicalBody):
         PhysicalBody.__init__(self)
         self.team = team
         self.object_type = ot
+
+    def handle_collide(self, other):
+        if other.object_type == ObjectType.COLLIDEABLE:
+            self.pos -= self.vel - self.a
 
 class Destroyable:
     
@@ -227,6 +233,9 @@ class Ship(GameObject, Destroyable):
             if len(self.coords) > 100:
                 self.coords.pop(0)
 
+        pos = normalize(self.center())
+        self.hitbox = (pos.x - 37.5, pos.y - 37.5, 75, 75)
+
     def draw(self, window):
         Destroyable.draw(self, window)
 
@@ -244,5 +253,6 @@ class Ship(GameObject, Destroyable):
         super().draw(window)
 
     def handle_collide(self, other):
+        GameObject.handle_collide(self, other)
         if other.object_type == ObjectType.BULLET and self.team != other.team:
             self.health -= other.damage
